@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Sports Betting App{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>🏀 Sports Betting Arena</h1>
+    <p class="subtitle" style="color: #FFD700;">️ Place Your Bets • Track Wins • Have Fun! 🎉</p>
+    
+    <div class="balance-box">
+        💰 Your Balance: <strong id="balance">$1000.00</strong>
+    </div>
+    
+    <div style="text-align: center; margin: 20px 0;">
+        <button class="btn" onclick="loadEvents()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); font-size: 16px; padding: 15px 35px;">
+            🎲 View All Events
+        </button>
+        <button class="btn" onclick="showHistory()" style="background: linear-gradient(135deg, #f093fb 0%, #764ba2 100%); font-size: 16px; padding: 15px 35px;">
+            📜 My Bet History
+        </button>
+    </div>
+    
+    <div id="content"></div>
+</div>
+
+<script>
+function loadEvents() {
+    const contentDiv = document.getElementById('content');
+    contentDiv.innerHTML = '<div style="text-align: center; padding: 20px;"><p style="font-size: 18px; color: #667eea;">⏳ Loading events...</p></div>';
+    
+    fetch('/api/events')
+        .then(r => r.json())
+        .then(events => {
+            let html = '<div style="margin-top: 30px;"><h2 style="text-align: center; margin-bottom: 25px; font-size: 24px; color: #00FF88; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3); font-weight: 700;">⭐ Available Events</h2><div class="events">';
+            events.forEach(e => {
+                html += `
+                <div class="event">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0; font-size: 18px;">🏆 ${e.sport}</h3>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 15px; align-items: center; text-align: center; margin: 15px 0;">
+                        <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 12px; border-radius: 8px; font-weight: bold;">${e.team1}</div>
+                        <div style="font-size: 18px; color: #f093fb; font-weight: bold;">VS</div>
+                        <div style="background: linear-gradient(135deg, #764ba2, #f093fb); color: white; padding: 12px; border-radius: 8px; font-weight: bold;">${e.team2}</div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 15px; text-align: center; margin: 12px 0;">
+                        <div style="background: #f5f5f5; padding: 10px; border-radius: 6px;">
+                            <div style="font-size: 12px; color: #999;">Odds</div>
+                            <div style="font-size: 16px; font-weight: bold; color: #667eea;">${e.odds1}</div>
+                        </div>
+                        <div></div>
+                        <div style="background: #f5f5f5; padding: 10px; border-radius: 6px;">
+                            <div style="font-size: 12px; color: #999;">Odds</div>
+                            <div style="font-size: 16px; font-weight: bold; color: #764ba2;">${e.odds2}</div>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
+                        <input type="number" id="amount${e.id}" placeholder="Amount" min="1" max="1000" style="width: 100%; padding: 10px; border: 2px solid #667eea; border-radius: 6px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <button onclick="bet('${e.id}', 0)" class="btn" style="margin: 0; padding: 10px; font-size: 13px;">Bet ${e.team1}</button>
+                            <button onclick="bet('${e.id}', 1)" class="btn" style="margin: 0; padding: 10px; font-size: 13px;">Bet ${e.team2}</button>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            html += '</div></div>';
+            document.getElementById('content').innerHTML = html;
+        })
+        .catch(e => {
+            document.getElementById('content').innerHTML = '<p style="text-align: center; color: #f093fb; font-size: 16px;">❌ Error loading events</p>';
+        });
+}
+
+function bet(eventId, teamIdx) {
+    const amount = parseFloat(document.getElementById('amount' + eventId).value);
+    if (!amount || amount <= 0) {
+        alert('❌ Please enter a valid amount!');
+        return;
+    }
+    
+    fetch('/api/place-bet', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({event_id: eventId, amount: amount, team_idx: teamIdx})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ ' + data.message + '\n\nPotential Win: $' + data.potential_win);
+            document.getElementById('balance').textContent = '$' + data.balance;
+            document.getElementById('amount' + eventId).value = '';
+        } else {
+            alert('❌ ' + data.message);
+        }
+    });
+}
+
+function showHistory() {
+    const contentDiv = document.getElementById('content');
+    contentDiv.innerHTML = '<div style="text-align: center; padding: 20px;"><p style="font-size: 18px; color: #667eea;">⏳ Loading history...</p></div>';
+    
+    fetch('/api/history')
+        .then(r => r.json())
+        .then(bets => {
+            let html = '<div style="margin-top: 30px;"><h2 style="text-align: center; margin-bottom: 25px; font-size: 24px; color: #FF69B4; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3); font-weight: 700;">📊 Your Bet History</h2><div class="history">';
+            if (bets.length === 0) {
+                html += '<p style="text-align: center; padding: 30px; color: #999; font-size: 16px;">📭 No bets placed yet. Start betting!</p>';
+            } else {
+                bets.reverse().forEach((b, idx) => {
+                    const colors = ['#667eea', '#764ba2', '#f093fb'];
+                    html += `<div class="bet-record" style="border-left-color: ${colors[idx % 3]};">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-weight: bold; color: #667eea; font-size: 16px;">🎯 ${b.team}</div>
+                                <p style="margin: 5px 0; color: #666;">Bet: <strong>$${b.amount}</strong> @ ${b.odds} odds</p>
+                                <p class="small">📅 ${b.date}</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 18px; font-weight: bold; color: #f093fb;">$${b.potential_win}</div>
+                                <p style="font-size: 12px; color: #999; margin: 5px 0;">Potential Win</p>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+            }
+            html += '</div></div>';
+            contentDiv.innerHTML = html;
+        })
+        .catch(e => {
+            document.getElementById('content').innerHTML = '<p style="text-align: center; color: #f093fb; font-size: 16px;">❌ Error loading history</p>';
+        });
+}
+
+// Load balance on page load
+window.onload = function() {
+    fetch('/api/balance').then(r => r.json()).then(d => {
+        document.getElementById('balance').textContent = '$' + d.balance.toFixed(2);
+    });
+};
+</script>
+{% endblock %}
